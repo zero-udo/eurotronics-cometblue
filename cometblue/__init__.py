@@ -170,7 +170,7 @@ class AsyncCometBlue:
         for k in list(result):
             if result[k] < -10 or result[k] > 50:
                 _LOGGER.warning("Removed invalid value %s: %s", k, result[k])
-                result.pop(k)
+                result[k] = None
 
         return result
 
