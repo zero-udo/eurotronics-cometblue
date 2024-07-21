@@ -18,6 +18,10 @@ UUID_REGEX = re.compile('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-
 _LOGGER = getLogger(__name__)
 
 
+class InvalidByteValueError(ValueError):
+    """Raised when a byte value is not in the expected range."""
+
+
 class Weekday(Enum):
     MONDAY = 1,
     TUESDAY = 2,
@@ -47,6 +51,14 @@ HOLIDAY = {
     6: const.CHARACTERISTIC_HOLIDAY_6,
     7: const.CHARACTERISTIC_HOLIDAY_7,
     8: const.CHARACTERISTIC_HOLIDAY_8,
+}
+
+TEMPERATURE_ALLOWED_RANGE = {
+    "currentTemp": (0, 50),
+    "manualTemp": (7.5, 28.5),
+    "targetTempLow": (7.5, 28.5),
+    "targetTempHigh": (7.5, 28.5),
+    "tempOffset": (-5, 5),
 }
 
 
@@ -167,10 +179,9 @@ class AsyncCometBlue:
         result["windowOpen"] = value[5] == 0xF0
         result["windowOpenMinutes"] = value[6]
 
-        for k in list(result):
-            if result[k] < -10 or result[k] > 50:
-                _LOGGER.warning("Removed invalid value %s: %s", k, result[k])
-                result[k] = None
+        for k, v in TEMPERATURE_ALLOWED_RANGE.items():
+            if not v[0] <= result[k] <= v[1]:
+                raise InvalidByteValueError(f"Invalid temperature received: {value}")
 
         return result
 
@@ -237,8 +248,7 @@ class AsyncCometBlue:
         try:
             dt = datetime(year, month, day, hour, minute)
         except ValueError as ex:
-            _LOGGER.warning("Cannot parse datetime: %s. Received %s", ex, list(value))
-            return None
+            raise InvalidByteValueError(f"Invalid datetime received: {value}") from ex
         return dt
 
     @staticmethod
@@ -266,6 +276,8 @@ class AsyncCometBlue:
         """
         result = dict()
         for i in range(1,5):
+            if max(value[int(i/2)*2], value[int(i/2)*2+1]) >= 24:
+                raise InvalidByteValueError(f"Invalid weekday received: {value}")
             start = self.__to_time_str(value[int(i/2)*2])
             end = self.__to_time_str(value[int(i/2)*2+1])
             if start is not None and end is not None and start != end:
@@ -327,7 +339,7 @@ class AsyncCometBlue:
             or values[5] not in range(1, 31)
             or values[4] not in range(0, 25)
         ):
-            return {}
+            raise InvalidByteValueError(f"Invalid holiday received: {values}")
 
         # If vacation mode has started, the hour values is 64, so we set start to None
         if values[0] == 128:
