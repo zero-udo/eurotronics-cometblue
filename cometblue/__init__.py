@@ -330,12 +330,8 @@ class AsyncCometBlue:
         """
 
         # validate if end is in past
-        try:
-            end = datetime(values[7] + 2000, values[6], values[5], values[4])
-            if end < datetime.now():
-                return {}
-        except ValueError as ex:
-            raise InvalidByteValueError(f"Invalid holiday received: {values}") from ex
+        if values[4] == 128:
+            return {}
 
         # validate all values
         if (
