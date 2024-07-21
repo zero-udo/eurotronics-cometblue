@@ -328,7 +328,16 @@ class AsyncCometBlue:
         :return: dictionary containing start: datetime, end: datetime and temperature: float or empty if bytearray is
         malformed
         """
-        # validate values
+
+        # validate if end is in past
+        try:
+            end = datetime(values[7] + 2000, values[6], values[5], values[4])
+            if end < datetime.now():
+                return {}
+        except ValueError as ex:
+            raise InvalidByteValueError(f"Invalid holiday received: {values}") from ex
+
+        # validate all values
         if (
             values[3] not in range(0, 100)
             or values[2] not in range(1, 13)
