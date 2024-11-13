@@ -276,7 +276,9 @@ class AsyncCometBlue:
         """
         result = dict()
         for i in range(1,5):
-            if max(value[int(i/2)*2], value[int(i/2)*2+1]) >= 24:
+            # validate if start and end are in valid range
+            # 144: 24:00, 255: not set
+            if 144 < max(value[int(i/2)*2], value[int(i/2)*2+1]) < 255:
                 raise InvalidByteValueError(f"Invalid weekday received: {value}")
             start = self.__to_time_str(value[int(i/2)*2])
             end = self.__to_time_str(value[int(i/2)*2+1])
@@ -616,10 +618,19 @@ class AsyncCometBlue:
         weekdays), 'manual']
         :return: dictionary containing all requested information.
         """
-        result = {
-            k: await getattr(self, f"{v[0]}_async")(v[1]) if v[1] else await getattr(self, f"{v[0]}_async")()
-            for k, v in self._prepare_get_multiples(values).items()
-        }
+        result = {}
+        error = None
+        for k, v in self._prepare_get_multiples(values).items():
+            try:
+                if v[1]:
+                    result[k] = await getattr(self, f"{v[0]}_async")(v[1])
+                else:
+                    result[k] = await getattr(self, f"{v[0]}_async")()
+            except InvalidByteValueError as ex:
+                _LOGGER.error("Failure in '%s'(%s): %s (%s)", k, v, type(ex).__name__, ex)
+                error = ex
+        if error:
+            raise error
         return result
 
     async def __aenter__(self):
