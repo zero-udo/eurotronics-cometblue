@@ -331,8 +331,9 @@ class AsyncCometBlue:
         malformed
         """
 
-        # validate if end is in past
-        if values[4] == 128:
+        # validate if end is in past (128)
+        # or is otherwise invalid (>128)
+        if values[4] >= 128:
             return {}
 
         # validate all values
